@@ -1,0 +1,6 @@
+settings.py
+*.pyc
+whoosh_index
+pip-log.txt
+build
+*.egg-info*
