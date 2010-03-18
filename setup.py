@@ -1,16 +1,13 @@
 import os
 from setuptools import setup, find_packages
 
-def read(fname):
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
-
 setup(
     name = "django_cherrypy",
     version = "1.0",
     url = '',
     license = 'BSD',
     description = "Cherrypy web server management command for Django.",
-    long_description = read('README'),
+    long_description = "Cherrpy webserver as a management command for Django",
     author = 'Matt Westerburg',
     author_email = 'matt.westerburg@comfychairconsulting.com',
     packages = ['django_cherrypy'],

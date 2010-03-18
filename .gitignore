@@ -3,4 +3,5 @@ settings.py
 whoosh_index
 pip-log.txt
 build
+dist
 *.egg-info*

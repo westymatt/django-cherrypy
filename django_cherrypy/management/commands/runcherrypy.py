@@ -8,7 +8,7 @@ CPSERVER_HELP = r"""
   Run this project in a CherryPy webserver. To do this, CherryPy from
   http://www.cherrypy.org/ is required.
 
-   runcpserver [options] [cpserver settings] [stop]
+   runcherrypy [options] [cpserver settings] [stop]
 
 Optional CherryPy server settings: (setting=value)
   host=HOSTNAME         hostname to listen on
@@ -31,13 +31,13 @@ Optional CherryPy server settings: (setting=value)
 
 Examples:
   Run a "standard" CherryPy server server
-    $ manage.py runcpserver
+    $ manage.py runcherrypy
 
   Run a CherryPy server on port 80
-    $ manage.py runcpserver port=80
+    $ manage.py runcherrypy port=80
 
   Run a CherryPy server as a daemon and write the spawned PID in a file
-    $ manage.py runcpserver daemonize=true pidfile=/var/run/django-cpserver.pid
+    $ manage.py runcherrypy daemonize=true pidfile=/var/run/django-cherrypy.pid
 
 """
 
@@ -70,7 +70,7 @@ class Command(BaseCommand):
             translation.activate(settings.LANGUAGE_CODE)
         except AttributeError:
             pass
-        runcpserver(args)
+        runcherrypy(args)
 
     def usage(self, subcommand):
         return CPSERVER_HELP
@@ -169,7 +169,7 @@ def start_server(options):
         server.stop()
 
 
-def runcpserver(argset=[], **kwargs):
+def runcherrypy(argset=[], **kwargs):
     # Get the options
     options = CPSERVER_OPTIONS.copy()
     options.update(kwargs)
@@ -222,6 +222,5 @@ def runcpserver(argset=[], **kwargs):
     else:
         start_server(options)
 
-
 if __name__ == '__main__':
-    runcpserver(sys.argv[1:])
+    runcherrypy(sys.argv[1:])
