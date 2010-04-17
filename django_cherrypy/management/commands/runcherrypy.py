@@ -10,7 +10,7 @@ CPSERVER_HELP = r"""
 
    runcherrypy [options] [cpserver settings] [stop]
 
-Optional CherryPy server settings: (setting=value)
+  Optional CherryPy server settings: (setting=value)
   host=HOSTNAME         hostname to listen on
                         Defaults to localhost
   port=PORTNUM          port to listen on
@@ -54,6 +54,7 @@ CPSERVER_OPTIONS = {
 'server_group': 'www-data',
 'ssl_certificate': None,
 'ssl_private_key': None,
+'httplog': True,
 }
 
 
@@ -143,7 +144,7 @@ def stop_server(pidfile):
                 raise OSError, "Process %s did not stop."
         os.remove(pidfile)
 
-def start_server(options):
+def start_server(options, settings):
     """
     Start CherryPy server
     """
@@ -151,12 +152,46 @@ def start_server(options):
     if options['daemonize'] and options['server_user'] and options['server_group']:
         #ensure the that the daemon runs as specified user
         change_uid_gid(options['server_user'], options['server_group'])
+    """
+    import cherrypy
+    from django.core.handlers.wsgi import WSGIHandler
+    from django.core.servers.basehttp import AdminMediaHandler
+    app = AdminMediaHandler(WSGIHandler())
 
+    cherrypy.config.update({
+        'global' : {
+            'log.screen' : True,
+            'tools.log_headers.on' : options['httplog'],
+         }
+    })
+
+    conf = {
+        '/': {
+            'tools.wsgiapp.on': True,
+            'tools.wsgiapp.app': app,
+            'tools.trailing_slash.on': True,
+            'tools.staticdir.root': '/home/westymatt/Projects/gigobot/media',
+        },
+        '/css' : {
+            'tools.staticdir.on': True,
+            'tools.staticdir.dir': 'css',
+        },
+    }
+
+    cherrypy.tree.mount(app, '/', config=conf)
+    try:
+        cherrypy.engine.start()
+    except KeyboardInterrupt:
+        cherrypy.engine.stop()
+
+    """
+    """
     from cherrypy.wsgiserver import CherryPyWSGIServer as Server
     from django.core.handlers.wsgi import WSGIHandler
+
     server = Server(
         (options['host'], int(options['port'])),
-        WSGIHandler(),
+        app,
         int(options['threads']),
         options['server_name']
     )
@@ -167,7 +202,7 @@ def start_server(options):
         server.start()
     except KeyboardInterrupt:
         server.stop()
-
+    """
 
 def runcherrypy(argset=[], **kwargs):
     # Get the options
@@ -203,24 +238,25 @@ def runcherrypy(argset=[], **kwargs):
         fp.write("%d\n" % os.getpid())
         fp.close()
 
-    # Start the webserver
+    # handle admin media
     import django
     from django.conf import settings
     from django.utils import translation
-    
+
     translation.activate(settings.LANGUAGE_CODE)
     quit_command = (sys.platform == 'win32') and 'CTRL-BREAK' or 'CONTROL-C'
-    
-    self.validate(display_num_errors=True)
+
+    #self.validate(display_num_errors=True)
     print "\nDjango version %s, using settings %r" % (django.get_version(), settings.SETTINGS_MODULE)
     print "CherryPy WSGI Server running at http://%s:%s/" % (options['host'], options['port'])
     print "Quit the server with %s" % (quit_command)
     print 'starting server with options %s' % options
     if options['autoreload']:
         from django.utils import autoreload
-        autoreload.main(start_server, kwargs={'options' : options})
+        autoreload.main(start_server, kwargs={'options' : options, 'settings' : settings})
     else:
-        start_server(options)
+        start_server(options, settings)
+    start_server(options, settings)
 
 if __name__ == '__main__':
     runcherrypy(sys.argv[1:])
