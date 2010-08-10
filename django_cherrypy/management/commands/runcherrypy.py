@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import django
 import logging, sys, os, signal, time, errno
 from socket import gethostname
 from django.core.management.base import BaseCommand
@@ -42,21 +42,21 @@ Examples:
 """
 
 CPSERVER_OPTIONS = {
-'host': 'localhost',
-'port': 8000,
-'server_name': 'localhost',
-'threads': 10,
-'autoreload': True,
-'daemonize': False,
-'workdir': None,
-'pidfile': None,
-'server_user': 'www-data',
-'server_group': 'www-data',
-'ssl_certificate': None,
-'ssl_private_key': None,
-'httplog': True,
+    'host': 'localhost',
+    'port': 8000,
+    'server_name': 'localhost',
+    'threads': 10,
+    'config': None,
+    'autoreload': True,
+    'daemonize': False,
+    'workdir': None,
+    'pidfile': None,
+    'server_user': 'www-data',
+    'server_group': 'www-data',
+    'ssl_certificate': None,
+    'ssl_private_key': None,
+    'httplog': True,
 }
-
 
 class Command(BaseCommand):
     help = "CherryPy Server for project. Requires CherryPy."
@@ -71,11 +71,30 @@ class Command(BaseCommand):
             translation.activate(settings.LANGUAGE_CODE)
         except AttributeError:
             pass
-        runcherrypy(args)
+        server_options = build_options(args)
+        print_server_starting_message(settings, server_options, (sys.platform == 'win32') and 'CTRL-BREAK' or 'CONTROL-C')
+        runcherrypy(options=server_options)
 
     def usage(self, subcommand):
         return CPSERVER_HELP
 
+def build_options(args):
+    """Merge the default options and merge them with the
+    options specified by the user
+    """
+    server_options = CPSERVER_OPTIONS.copy()
+    server_options.update(args)
+    return server_options
+
+def print_server_starting_message(settings, server_options, quit_command):
+    """Print the server starting message informing
+    the user of some of the options in place.
+    """
+    print "\nDjango version %s, using settings %r" % (django.get_version(), settings.SETTINGS_MODULE)
+    print "CherryPy WSGI Server running at http://%s:%s/" % (server_options['host'], server_options['port'])
+    print "Quit the server with %s" % (quit_command)
+    print 'starting server with options %s' % server_options
+    
 def change_uid_gid(uid, gid=None):
     """Try to change UID and GID to the provided values.
     UID and GID are given as names like 'nobody' not integer.
@@ -152,43 +171,11 @@ def start_server(options, settings):
     if options['daemonize'] and options['server_user'] and options['server_group']:
         #ensure the that the daemon runs as specified user
         change_uid_gid(options['server_user'], options['server_group'])
-    """
-    import cherrypy
+
+    from cherrypy.wsgiserver import CherryPyWSGIServer as Server
     from django.core.handlers.wsgi import WSGIHandler
     from django.core.servers.basehttp import AdminMediaHandler
     app = AdminMediaHandler(WSGIHandler())
-
-    cherrypy.config.update({
-        'global' : {
-            'log.screen' : True,
-            'tools.log_headers.on' : options['httplog'],
-         }
-    })
-
-    conf = {
-        '/': {
-            'tools.wsgiapp.on': True,
-            'tools.wsgiapp.app': app,
-            'tools.trailing_slash.on': True,
-            'tools.staticdir.root': '/home/westymatt/Projects/gigobot/media',
-        },
-        '/css' : {
-            'tools.staticdir.on': True,
-            'tools.staticdir.dir': 'css',
-        },
-    }
-
-    cherrypy.tree.mount(app, '/', config=conf)
-    try:
-        cherrypy.engine.start()
-    except KeyboardInterrupt:
-        cherrypy.engine.stop()
-
-    """
-    """
-    from cherrypy.wsgiserver import CherryPyWSGIServer as Server
-    from django.core.handlers.wsgi import WSGIHandler
-
     server = Server(
         (options['host'], int(options['port'])),
         app,
@@ -202,12 +189,9 @@ def start_server(options, settings):
         server.start()
     except KeyboardInterrupt:
         server.stop()
-    """
 
-def runcherrypy(argset=[], **kwargs):
-    # Get the options
-    options = CPSERVER_OPTIONS.copy()
-    options.update(kwargs)
+
+def runcherrypy(argset=[], options={}, **kwargs):
     for x in argset:
         if "=" in x:
             k, v = x.split('=', 1)
@@ -246,16 +230,9 @@ def runcherrypy(argset=[], **kwargs):
     translation.activate(settings.LANGUAGE_CODE)
     quit_command = (sys.platform == 'win32') and 'CTRL-BREAK' or 'CONTROL-C'
 
-    #self.validate(display_num_errors=True)
-    print "\nDjango version %s, using settings %r" % (django.get_version(), settings.SETTINGS_MODULE)
-    print "CherryPy WSGI Server running at http://%s:%s/" % (options['host'], options['port'])
-    print "Quit the server with %s" % (quit_command)
-    print 'starting server with options %s' % options
     if options['autoreload']:
         from django.utils import autoreload
         autoreload.main(start_server, kwargs={'options' : options, 'settings' : settings})
-    else:
-        start_server(options, settings)
     start_server(options, settings)
 
 if __name__ == '__main__':
